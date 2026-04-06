@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # NumPy Assignment – GitHub Classroom
 
 ## Instructions
