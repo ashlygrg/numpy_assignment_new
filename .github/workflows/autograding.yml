@@ -1,100 +1,99 @@
-name: Autograding with Marks
+name: GitHub Classroom Autograding
 
 on:
-  pull_request:
   push:
+    branches: [ main ]
 
 jobs:
-  grade:
+  run-autograding-tests:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      # =========================
+      # SETUP
+      # =========================
 
-      - uses: actions/setup-python@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - run: pip install numpy matplotlib
+      - name: Install dependencies
+        run: pip install pandas
 
-      - name: Run grading
-        run: |
-          python << 'EOF'
-          import numpy as np
-          from assignment import *
+      # =========================
+      # TEST CASES
+      # =========================
 
-          score = 0
-          feedback = []
-
-          try:
-              if (create_array() == np.arange(1,11)).all():
-                  score += 10
-                  feedback.append("Q1 ✅")
-              else:
-                  feedback.append("Q1 ❌")
-          except:
-              feedback.append("Q1 Error")
-
-          try:
-              if (array_arithmetic(np.array([1,2,3]), np.array([4,5,6])) == np.array([5,7,9])).all():
-                  score += 10
-                  feedback.append("Q2 ✅")
-              else:
-                  feedback.append("Q2 ❌")
-          except:
-              feedback.append("Q2 Error")
-
-          try:
-              if (slicing_example(np.arange(20)) == np.array([0,1,2,3,4])).all():
-                  score += 10
-                  feedback.append("Q3 ✅")
-              else:
-                  feedback.append("Q3 ❌")
-          except:
-              feedback.append("Q3 Error")
-
-          try:
-              if (matrix_multiplication(np.array([[1,2],[3,4]]), np.array([[5,6],[7,8]])) == np.array([[19,22],[43,50]])).all():
-                  score += 10
-                  feedback.append("Q4 ✅")
-              else:
-                  feedback.append("Q4 ❌")
-          except:
-              feedback.append("Q4 Error")
-
-          try:
-              arr = random_numbers()
-              if len(arr) == 5:
-                  score += 10
-                  feedback.append("Q5 ✅")
-              else:
-                  feedback.append("Q5 ❌")
-          except:
-              feedback.append("Q5 Error")
-
-          try:
-              plot_graph()
-              score += 10
-              feedback.append("Q6 ✅")
-          except:
-              feedback.append("Q6 ❌")
-
-          with open("result.txt","w") as f:
-              f.write(f"Score: {score}/60\n")
-              f.write("\n".join(feedback))
-          EOF
-
-      - name: Comment PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+      # ✅ Test 1: Load CSV
+      - name: Test 1 - Load CSV
+        id: test1
+        uses: classroom-resources/autograding-command-grader@v1
         with:
-          script: |
-            const fs = require('fs');
-            const result = fs.readFileSync('result.txt', 'utf8');
+          test-name: "Load CSV File"
+          command: |
+            python -c "import assignment as a; import pandas as pd; df=a.load_data(); assert isinstance(df, pd.DataFrame)"
+          timeout: 10
+          max-score: 2
 
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: "## Autograding Result\n\n" + result
-            });
+      # ✅ Test 2: Average Marks (FIXED)
+      - name: Test 2 - Average Marks
+        id: test2
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: "Average Marks"
+          command: |
+            python -c "import assignment as a; import pandas as pd; df=a.load_data(); expected=pd.read_csv('data.csv')['marks'].mean(); assert abs(a.average_marks(df)-expected) < 1e-6"
+          timeout: 10
+          max-score: 2
+
+      # ✅ Test 3: Top Student
+      - name: Test 3 - Top Student
+        id: test3
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: "Top Student"
+          command: |
+            python -c "import assignment as a; df=a.load_data(); assert a.top_student(df)=='Alice'"
+          timeout: 10
+          max-score: 2
+
+      # ✅ Test 4: Passed Students
+      - name: Test 4 - Passed Students
+        id: test4
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: "Filter Passed Students"
+          command: |
+            python -c "import assignment as a; df=a.load_data(); result=a.passed_students(df); assert all(result['marks']>=50)"
+          timeout: 10
+          max-score: 2
+
+      # ✅ Test 5: Add Grade Column
+      - name: Test 5 - Add Grade Column
+        id: test5
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: "Add Grade Column"
+          command: |
+            python -c "import assignment as a; df=a.load_data(); df2=a.add_grade(df.copy()); assert 'grade' in df2.columns"
+          timeout: 10
+          max-score: 2
+
+      # =========================
+      # REPORT RESULTS (FIXED)
+      # =========================
+
+      - name: Autograding Reporter
+        uses: classroom-resources/autograding-grading-reporter@v1
+        with:
+          runners: test1,test2,test3,test4,test5
+        env:
+          TEST1_RESULTS: "${{ steps.test1.outputs.result }}"
+          TEST2_RESULTS: "${{ steps.test2.outputs.result }}"
+          TEST3_RESULTS: "${{ steps.test3.outputs.result }}"
+          TEST4_RESULTS: "${{ steps.test4.outputs.result }}"
+          TEST5_RESULTS: "${{ steps.test5.outputs.result }}"
